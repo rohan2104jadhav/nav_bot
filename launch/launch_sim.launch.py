@@ -85,9 +85,6 @@ def generate_launch_description():
     declare_world_cmd,
     gazebo,
         spawn_entity,
-        rviz_node,
-        
+        rviz_node,    
         rsp,
-
-
     ])
