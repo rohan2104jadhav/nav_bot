@@ -10,9 +10,11 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
     # 1. Find the package directories
-    pkg_name = ('nav_bot')
+    pkg_name = 'nav_bot'
+    pkg_share = get_package_share_directory(pkg_name)
     gazebo_ros_share = get_package_share_directory('gazebo_ros')
-    default_rviz_config_path = os.path.join(pkg_name, 'config', 'drive_bot.rviz')
+    default_rviz_config_path = os.path.join(pkg_share, 'config', 'drive_bot.rviz')
+    default_world_path = os.path.join(pkg_share, 'worlds', 'obstacles.world')
     use_sim_time = LaunchConfiguration('use_sim_time')
 
 
@@ -33,8 +35,8 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(gazebo_ros_share, 'launch', 'gazebo.launch.py')
         ),
-        # launch_arguments={'world': world_file}.items()
-        launch_arguments={'world': ''}.items()
+        # pass the world argument (can be overridden by a launch-time arg)
+        launch_arguments={'world': LaunchConfiguration('world')}.items()
     )
 
     ExecuteProcess(cmd=['gazebo', '--verbose', '-s', 'libgazebo_ros_init.so', '-s', 'libgazebo_ros_factory.so'], output='screen'),
@@ -68,15 +70,23 @@ def generate_launch_description():
         description='Use simulation (Gazebo) clock if true'
     )
 
+    declare_world_cmd = DeclareLaunchArgument(
+        name='world',
+        default_value=default_world_path,
+        description='Absolute path to world file to load in Gazebo'
+    )
+
     # 7. BRIDGE IS NOT NEEDED IN CLASSIC
     # Gazebo Classic handles ROS 2 communication natively via plugins.
 
     return LaunchDescription([
-        DeclareLaunchArgument(name='rvizconfig', default_value=default_rviz_config_path, description='Absolute path to rviz config file'),
-        declare_use_sim_time_cmd,
-        gazebo,
+    DeclareLaunchArgument(name='rvizconfig', default_value=default_rviz_config_path, description='Absolute path to rviz config file'),
+    declare_use_sim_time_cmd,
+    declare_world_cmd,
+    gazebo,
         spawn_entity,
         rviz_node,
+        
         rsp,
 
 
