@@ -1,0 +1,83 @@
+import os
+from ament_index_python.packages import get_package_share_directory
+
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription, ExecuteProcess, DeclareLaunchArgument
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import Command, LaunchConfiguration
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
+
+def generate_launch_description():
+    # 1. Find the package directories
+    pkg_name = ('nav_bot')
+    gazebo_ros_share = get_package_share_directory('gazebo_ros')
+    default_rviz_config_path = os.path.join(pkg_name, 'config', 'drive_bot.rviz')
+    use_sim_time = LaunchConfiguration('use_sim_time')
+
+
+    rsp = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory(pkg_name),
+                'launch',
+                'rsp.launch.py'
+            )
+        ), 
+        launch_arguments={'use_sim_time': 'true'}.items()
+    )
+
+    # 4. Include the Gazebo Classic simulation launch file
+    # 'gazebo.launch.py' launches both the server (gzserver) and client (gzclient)
+    gazebo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(gazebo_ros_share, 'launch', 'gazebo.launch.py')
+        ),
+        # launch_arguments={'world': world_file}.items()
+        launch_arguments={'world': ''}.items()
+    )
+
+    ExecuteProcess(cmd=['gazebo', '--verbose', '-s', 'libgazebo_ros_init.so', '-s', 'libgazebo_ros_factory.so'], output='screen'),
+
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        output='screen',
+        # arguments=['-d', LaunchConfiguration('rvizconfig')],
+        parameters=[{'use_sim_time': use_sim_time}]
+
+    )    
+
+    # 6. Node to spawn the entity in Gazebo Classic
+    # usage: ros2 run gazebo_ros spawn_entity.py -topic robot_description -entity my_bot2
+    spawn_entity = Node(
+        package='gazebo_ros',
+        executable='spawn_entity.py',
+        arguments=[
+            '-topic', 'robot_description',
+            '-entity', 'nav_bot',
+            '-z', '0.1'
+        ],
+        output='screen'
+    )
+
+    declare_use_sim_time_cmd = DeclareLaunchArgument(
+        name='use_sim_time',
+        default_value='true',
+        description='Use simulation (Gazebo) clock if true'
+    )
+
+    # 7. BRIDGE IS NOT NEEDED IN CLASSIC
+    # Gazebo Classic handles ROS 2 communication natively via plugins.
+
+    return LaunchDescription([
+        DeclareLaunchArgument(name='rvizconfig', default_value=default_rviz_config_path, description='Absolute path to rviz config file'),
+        declare_use_sim_time_cmd,
+        gazebo,
+        spawn_entity,
+        rviz_node,
+        rsp,
+
+
+    ])
